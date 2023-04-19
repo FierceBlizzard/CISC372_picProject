@@ -1,0 +1,9 @@
+Script started on Wed Apr 19 18:11:41 2023
+]0;akumar@r1n00.darwin:~/CISC372_picProject[?1034h[akumar@r1n00 CISC372_picProject]$ srun image1 pic1.jpg edge 12
+Took 6 seconds
+]0;akumar@r1n00.darwin:~/CISC372_picProject[akumar@r1n00 CISC372_picProject]$ srun image2 pic1    pic2.jpg edge 12    e
+Took 6 seconds
+]0;akumar@r1n00.darwin:~/CISC372_picProject[akumar@r1n00 CISC372_picProject]$ edi  xit  
+exit
+
+Script done on Wed Apr 19 18:13:12 2023
