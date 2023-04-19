@@ -13,6 +13,8 @@
 
 int thread_count;
 
+enum KernelTypes type;
+
 //An array of kernel matrices to be used for image convolution.  
 //The indexes of these match the enumeration from the header file. ie. algorithms[BLUR] returns the kernel corresponding to a box blur.
 Matrix algorithms[]={
@@ -28,10 +30,10 @@ Matrix algorithms[]={
 typedef struct {
     Image* srcImage;
     Image* destImage;
-    Matrix* alg;
     int rank;
 } threadArgs;
 
+threadArgs global_Args;
 
 //getPixelValue - Computes the value of a specific pixel on a specific channel using the selected convolution kernel
 //Paramters: srcImage:  An Image struct populated with the image being convoluted
@@ -79,29 +81,27 @@ void convolute(Image* srcImage,Image* destImage,Matrix algorithm){
     }
 }
 
-void* convolute_thread(void* vargs){
-    threadArgs my_arg = (threadArgs*) vargs;
-    int my_rows, bit, span, pixel, row;
-    int my_rank = my_arg.rank;
-    int total_rows = my_arg->srcImage->height * my_arg->srcImage->width;
+void* convolute_thread(void* rank){
+    int my_rows, bit, span, pix, row;
+    long my_rank = (long) rank;
+    int total_rows = global_Args.srcImage->height;
     my_rows = total_rows / thread_count;
-    int processes = 0;
-    span = my_arg->srcImage->bpp * my_arg->srcImage->bpp;
+    span = global_Args.srcImage->bpp * global_Args.srcImage->bpp;
+
+    int my_start = (int)my_rank * my_rows;
+
     if(my_rank == thread_count-1){
-        my_rows = total_rows % thread_count;
+        my_rows += total_rows % thread_count;
     }
-
-    int my_start = my_rank * my_rows
-    int my_end = (my_rank + 1) * (my_rows)
-
-    for (row=0;my_start < my_end;row++){
-        for (pix=0;pix < my_arg->srcImage->width;pix++){
-            for (bit=0;bit < my_args->srcImage->bpp;bit++){
-                destImage->data[Index(pix,row,srcImage->width,bit,srcImage->bpp)]=getPixelValue(srcImage,pix,row,bit,algorithm);
+    for (row=my_start;row < (my_start + my_rows);row++){
+        for (pix=0;pix < global_Args.srcImage->width;pix++){
+            for (bit=0;bit < global_Args.srcImage->bpp;bit++){
+                global_Args.destImage->data[Index(pix,row,global_Args.srcImage->width,bit,global_Args.srcImage->bpp)]=getPixelValue(global_Args.srcImage,pix,row,bit,algorithms[type]);
             }
         }
     }
-    processes++;
+
+    return NULL;
 }
 
 //Usage: Prints usage information for the program
@@ -126,11 +126,12 @@ enum KernelTypes GetKernelType(char* type){
 //main:
 //argv is expected to take 2 arguments.  First is the source file name (can be jpg, png, bmp, tga).  Second is the lower case name of the algorithm.
 int main(int argc,char** argv){
+    thread_count = strtol(argv[3], NULL, 10);
     long t1,t2;
     t1=time(NULL);    
 
     stbi_set_flip_vertically_on_load(0); 
-    if (argc!=3) return Usage();
+    if (argc!=4) return Usage();
     char* fileName=argv[1];
     if (!strcmp(argv[1],"pic4.jpg")&&!strcmp(argv[2],"gauss")){
         printf("You have applied a gaussian filter to Gauss which has caused a tear in the time-space continum.\n");
@@ -149,19 +150,16 @@ int main(int argc,char** argv){
     destImage.width=srcImage.width;
     destImage.data=malloc(sizeof(uint8_t)*destImage.width*destImage.bpp*destImage.height);
     
+    global_Args.srcImage = &srcImage;
+    global_Args.destImage = &destImage;
+
     pthread_t* thread_handles;
-    thread_count = strol(argv[1], NULL, 10);
     thread_handles = (pthread_t*)malloc(thread_count * sizeof(pthread_t));
     long thread;
 
     //creating the threads and linking to the function
     for(thread = 0; thread < thread_count; thread++){
-        threadArgs pArgs;
-        pArgs.srcImage = &srcImage;
-        pArgs.destImage = &destImage;
-        pArgs.alg = algorithms[type];
-        pArgs.rank = thread;
-        pthread_create(&thread_handles[thread], NULL, &convolute_thread, (void*) &pArgs);
+        pthread_create(&thread_handles[thread], NULL, &convolute_thread, (void*) thread);
     }
 
     //joining the threads
